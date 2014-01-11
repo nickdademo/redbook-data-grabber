@@ -1,6 +1,6 @@
 What?
 =====
-A graphical Python application which can automatically grab vehicle data (e.g. price, specifications, features etc.) from the Australian automotive website http://redbook.com.au. This data can then be exported to an Excel file.
+A graphical Python application which can automatically grab vehicle data (e.g. price, specifications, features etc.) from the Australian automotive website http://redbook.com.au. Vehicle images as well as page screenshots can also be grabbed. This data can then be exported to an Excel file.
 
 Why?
 ====
