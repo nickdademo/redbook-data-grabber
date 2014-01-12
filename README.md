@@ -2,6 +2,8 @@ What?
 =====
 A graphical Python application which can automatically grab vehicle data (e.g. price, specifications, features etc.) from the Australian automotive website http://redbook.com.au. Vehicle images as well as page screenshots can also be grabbed. This data can then be exported to an Excel file.
 
+Screenshot 1: https://raw.github.com/nickdademo/redbook-data-grabber/master/Screenshot1.png
+
 Why?
 ====
 This application was a personal project of mine and here were some of my motivations for creating it:  
