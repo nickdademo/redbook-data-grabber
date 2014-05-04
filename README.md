@@ -7,13 +7,16 @@ Screenshot 1: https://raw.github.com/nickdademo/redbook-data-grabber/master/Scre
 Why?
 ====
 This application was a personal project of mine and here were some of my motivations for creating it:  
-1. To learn to create graphical applications using PyQt  
-2. To learn more about automated web browsing and data grabbing, in particular using multiple threads to speed up the process  
-3. To see if it was possible!
+1. To learn to create graphical applications using PyQt.  
+2. To learn more about automated web browsing and data grabbing, in particular, using multiple threads to speed up the process.  
+3. To see if it was possible and to show others how!  
 
 How?
 ====
-This application uses PhantomJS (a headless browser) in combination with Selenium (a web automation framework) to automatically grab the data. PyQt provides a neat and easy-to-use user-interface for the application.
+This application makes use of the following:  
+- PhantomJS, a headless browser: http://phantomjs.org/  
+- Selenium, a web automation framework: http://docs.seleniumhq.org/  
+- PyQt, a Python binding of the cross-platform GUI toolkit Qt: http://www.riverbankcomputing.com/software/pyqt/  
 
 The application can be run on both Windows and Linux.
 
