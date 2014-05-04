@@ -34,8 +34,8 @@ Linux
 _The following procedure was tested with:_  
 Ubuntu 12.04 LTS (32-bit)  
 Python 2.7.3  
-Selenium 2.39.0  
-PhantomJS 1.9.2  
+Selenium 2.41.0  
+PhantomJS 1.9.7  
 
 1. Install PIP:  
 _$ sudo apt-get install python-pip_

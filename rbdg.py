@@ -24,7 +24,7 @@ from xlsxwriter.workbook import Workbook
 # 2: The retry attempt immediately after a fail does not use the previously completed vehicle list
 
 DEBUG                           = True
-APP_VERSION_STRING              = "1.0.0"
+APP_VERSION_STRING              = "1.0.1"
 DEFAULT_REDBOOK_URL             = "http://www.redbook.com.au/"
 AUTHOR_STRING                   = "Created by Nick D'Ademo"
 PHANTOMJS_PATH                  = "./phantomjs" # Change to phantomjs.exe if running in Windows. Also, "html5lib" is used as the BeautifulSoup parse library in Linux. For Windows, change line 528 to: BeautifulSoup(html_source)
@@ -32,12 +32,22 @@ WEBDRIVER_UNTIL_WAIT_S          = 30
 WEBDRIVER_PAGELOAD_TIMEOUT_S    = 30
 WEBDRIVER_IMPLICIT_WAIT_S       = 5
 DEFAULT_SEARCH_TYPE_ID          = "rdbCurrent"
-MAX_THREAD_COUNT                = 2
+MAX_THREAD_COUNT                = 4
 DATA_SAVE_REL_PATH              = "Data"
 THREAD_STOP_WAIT_MS             = 1000
 N_ROWS_GAP_BETWEEN_IMAGES       = 30
 COLUMN_WIDTH_PADDING            = 2
 EXCEL_TEMP_DIR                  = "Temp"
+
+ID_VALUATION_PRICES             = "ctl07_p_ctl04_ctl03_ctl01_ctl02_dgProps"
+ID_OVERVIEW                     = "ctl07_p_ctl04_ctl03_ctl02_dgProps"
+ID_ENGINE                       = "ctl07_p_ctl04_ctl03_ctl05_ctl01_dgProps"
+ID_DIMENSIONS                   = "ctl07_p_ctl04_ctl03_ctl05_ctl02_dgProps"
+ID_WARRANTY                     = "ctl07_p_ctl04_ctl03_ctl05_ctl03_dgProps"
+ID_GREEN_INFO                   = "ctl07_p_ctl04_ctl03_ctl05_ctl04_pnlBody"
+ID_STEERING                     = "ctl07_p_ctl04_ctl03_ctl05_ctl05_dgProps"
+ID_WHEELS                       = "ctl07_p_ctl04_ctl03_ctl05_ctl06_dgProps"
+ID_STANDARD_EQUIPMENT           = "ctl07_p_ctl04_ctl03_ctl05_ctl07_dgPropsNoLabel"
 
 class Vehicle():
     def __init__(self, make, model, year, name, id, data_path):
@@ -530,9 +540,9 @@ class Worker(QRunnable):
         json_string = ""
         fields = dict()
 
-        # Valuation Prices: table[@id='ctl08_p_ctl04_ctl03_ctl01_ctl02_dgProps']
+        # Valuation Prices
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl01_ctl02_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_VALUATION_PRICES + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -550,9 +560,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Valuation Prices'] = temp
 
-        # Overview: table[@id='ctl08_p_ctl04_ctl03_ctl02_dgProps']
+        # Overview
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl02_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_OVERVIEW + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -586,9 +596,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Overview'] = temp
 
-        # Engine: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl01_dgProps']
+        # Engine
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl01_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_ENGINE + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -606,9 +616,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Engine'] = temp
 
-        # Dimensions: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl02_dgProps']
+        # Dimensions
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl02_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_DIMENSIONS + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -626,9 +636,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Dimensions'] = temp
 
-        # Warranty: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl03_dgProps']
+        # Warranty
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl03_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_WARRANTY + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -646,9 +656,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Warranty'] = temp
 
-        # Green Info: div[@id='ctl08_p_ctl04_ctl03_ctl05_ctl04_pnlBody']
+        # Green Info
         temp = dict()
-        for value in soup.select('div[id="ctl08_p_ctl04_ctl03_ctl05_ctl04_pnlBody"] tbody tr td[class*="definition"]'):
+        for value in soup.select('div[id="' + ID_GREEN_INFO + '"] tbody tr td[class*="definition"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -681,9 +691,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Green Info'] = temp
 
-        # Steering: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl05_dgProps']
+        # Steering
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl05_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_STEERING + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -701,9 +711,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Steering'] = temp
 
-        # Wheels: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl06_dgProps']
+        # Wheels
         temp = dict()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl06_dgProps"] td[class="value"]'):
+        for value in soup.select('table[id="' + ID_WHEELS + '"] td[class="value"]'):
             # Initialize variable(s)
             value_string = ""
             # Get label
@@ -721,9 +731,9 @@ class Worker(QRunnable):
         if len(temp) > 0:
             fields['Wheels'] = temp
 
-        # Standard Equipment: table[@id='ctl08_p_ctl04_ctl03_ctl05_ctl07_dgPropsNoLabel']
+        # Standard Equipment
         temp = list()
-        for value in soup.select('table[id="ctl08_p_ctl04_ctl03_ctl05_ctl07_dgPropsNoLabel"] tbody tr td[class*="item"]'):
+        for value in soup.select('table[id="' + ID_STANDARD_EQUIPMENT + '"] tbody tr td[class*="item"]'):
             # Add to temporary dict
             temp.append(value.string.strip())
         # Add to dict
