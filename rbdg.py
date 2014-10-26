@@ -17,24 +17,17 @@ import urllib
 import subprocess
 from xlsxwriter.workbook import Workbook
 
-################
-# KNOWN ISSUES #
-################
-# 1: Used (All) Search Type is non-functional
-# 2: The retry attempt immediately after a fail does not use the previously completed vehicle list
-
 DEBUG                           = True
-APP_VERSION_STRING              = "1.0.1"
+APP_VERSION_STRING              = "1.0.2"
 DEFAULT_REDBOOK_URL             = "http://www.redbook.com.au/"
 AUTHOR_STRING                   = "Created by Nick D'Ademo"
-PHANTOMJS_PATH                  = "./phantomjs" # Change to phantomjs.exe if running in Windows. Also, "html5lib" is used as the BeautifulSoup parse library in Linux. For Windows, change line 528 to: BeautifulSoup(html_source)
-WEBDRIVER_UNTIL_WAIT_S          = 30
-WEBDRIVER_PAGELOAD_TIMEOUT_S    = 30
-WEBDRIVER_IMPLICIT_WAIT_S       = 5
+PHANTOMJS_PATH                  = "./phantomjs"
+WEBDRIVER_UNTIL_WAIT_S          = 60
+WEBDRIVER_PAGELOAD_TIMEOUT_S    = 60
+WEBDRIVER_IMPLICIT_WAIT_S       = 30
 DEFAULT_SEARCH_TYPE_ID          = "rdbCurrent"
-MAX_THREAD_COUNT                = 4
+MAX_THREAD_COUNT                = 2
 DATA_SAVE_REL_PATH              = "Data"
-THREAD_STOP_WAIT_MS             = 1000
 N_ROWS_GAP_BETWEEN_IMAGES       = 30
 COLUMN_WIDTH_PADDING            = 2
 EXCEL_TEMP_DIR                  = "Temp"
@@ -154,7 +147,7 @@ class ExportThread(QtCore.QThread):
             model_item = year_item.parent()
             make_item = model_item.parent()
             # File name
-            file_path = v.data(0, QtCore.Qt.UserRole).toString()
+            file_path = v.data(0, QtCore.Qt.UserRole)
             # Get ID
             m_obj = re.search(r"_(\d+)", file_path)
             if m_obj:
@@ -185,10 +178,10 @@ class ExportThread(QtCore.QThread):
             # Get data
             with open(file_path) as data_file:    
                 data = json.load(data_file)
-            for key, value in data.iteritems(): 
+            for key, value in list(data.items()): 
                 # Dictionary
                 if isinstance(value, dict):
-                    for k, v in value.iteritems():
+                    for k, v in list(value.items()):
                         if k == "Price":
                             index_worksheet.write(j, 6, v, center)
                             index_col_6.append(len(v))
@@ -196,7 +189,7 @@ class ExportThread(QtCore.QThread):
                             if isinstance(v, dict):
                                 # Add to count
                                 field_count[k] += 1
-                                for k2, v2 in v.iteritems():
+                                for k2, v2 in list(v.items()):
                                     worksheet.write(row, 0, key, center_bold)
                                     col_0.append(len(key))
                                     worksheet.write(row, 1, k, center_bold)
@@ -245,7 +238,7 @@ class ExportThread(QtCore.QThread):
                     noMatches = False
             # Print warning if no images were found for current vehicle
             if noMatches:
-                print "WARNING: No images found for " + filename_noext
+                print("WARNING: No images found for %s" % filename_noext)
             index_worksheet.write(j, 5, str(nImages), center)
             index_col_5.append(len(str(nImages)))
             j += 1
@@ -297,7 +290,7 @@ class Worker(QRunnable):
         self.saveScreenshot = saveScreenshot
         self.saveImages = saveImages
         self.signals = WorkerSignals()
-        self.setAutoDelete(True) # not needed if set to True
+        self.setAutoDelete(True)
         self.doStop = False
         self.vehicleList = list()
         self.completedVehicles = completedVehicles
@@ -315,7 +308,7 @@ class Worker(QRunnable):
                 # Start PhantomJS webdriver
                 service_args = [
                     #'--proxy-type=none'
-                    ]
+                ]
                 driver = webdriver.PhantomJS(PHANTOMJS_PATH, service_args=service_args)
                 driver.set_page_load_timeout(WEBDRIVER_PAGELOAD_TIMEOUT_S)
                 driver.implicitly_wait(WEBDRIVER_IMPLICIT_WAIT_S)
@@ -380,7 +373,7 @@ class Worker(QRunnable):
                                 # Wait for page to load
                                 try:
                                     results = [x.get_attribute("href") for x in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='newcars']"))]
-                                except Exception, e:
+                                except Exception as e:
                                     # Do check
                                     no_results = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='']/div[@class='no-results']"))
                                     # Break out of loop
@@ -418,13 +411,13 @@ class Worker(QRunnable):
                             for href in href_list:
                                 driver.get(href)
                                 # Wait for page to load and append to results list
-                                badges = dict(badges.items() + dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']"))).items())
+                                badges = dict(list(badges.items()) + list(dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']"))).items()))
                             # Save number of badges        
                             nBadges = len(badges)
                             # Reset index
                             badgeIndex=0
                             # Iterate over BADGES
-                            for id, href in badges.iteritems():
+                            for id, href in list(badges.items()):
                                 # Check flag
                                 if self.doStop == True:
                                     raise StopException()
@@ -462,7 +455,7 @@ class Worker(QRunnable):
                                             images = None
                                             images = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div/ul[@class='thumbs']/li/a/img"))
                                         # No images (timeout)
-                                        except Exception, e:
+                                        except Exception as e:
                                             pass
                                         # Images found
                                         if images != None:
@@ -503,24 +496,32 @@ class Worker(QRunnable):
             # Exit thread
             else:
                 raise StopException()
-        except StopException, e1:
+        except StopException as e1:
             # Done
             self.signals.result.emit(self.vehicleList)
-        except Exception, e2:
+        except Exception as e2:
             if DEBUG:
-                print traceback.format_exc()
-            # Add to log
-            self.signals.log.emit("Retrying: " + self.make_text)
-            # Retry MAKE (set flag)
-            doRetry = True
+                print(traceback.format_exc())
+            if self.doStop:
+                # Done
+                self.signals.result.emit(self.vehicleList)
+            else:
+                 # Add to log
+                self.signals.log.emit("Retrying: " + self.make_text)
+                # Retry MAKE (set flag)
+                doRetry = True               
         finally:
             # Close webdriver (best effort)
             try:
                 driver.close()
-            except Exception, e3:
+            except Exception as e3:
                 pass
             finally:
-                if doRetry:
+                if self.doStop:
+                    # Done
+                    self.signals.result.emit(self.vehicleList)
+                else:
+                    # Retry MAKE
                     self.signals.retry.emit(self.make)
 
     def takeScreenshot(self, driver, name, save_location):
@@ -534,7 +535,6 @@ class Worker(QRunnable):
 
     def getDataAsJSONString(self, html_source):
         # Parse
-        #soup = BeautifulSoup(html_source) # For Windows
         soup = BeautifulSoup(html_source, "html5lib")
         # Initialize variable(s)
         json_string = ""
@@ -870,7 +870,7 @@ class Window(QtGui.QWidget):
         # Push Button (Stop)
         self.pushbutton_getDataStop = QtGui.QPushButton("Stop")
         self.pushbutton_getDataStop.setEnabled(False)
-        self.pushbutton_getDataStop.released.connect (self.stop)
+        self.pushbutton_getDataStop.released.connect(self.stop)
         # Checkbox (Save Screenshots)
         self.checkbox_saveScreenshots = QtGui.QCheckBox("Save Screenshots")
         # Checkbox (Save Images)
@@ -982,12 +982,8 @@ class Window(QtGui.QWidget):
         self.move(qr.topLeft())
 
     def addChild(self, parent, column, title, data, addCheck):
-        if data != None:
-            data_ = QtCore.QVariant(str(data))
-        else:
-            data_ = data
         item = QtGui.QTreeWidgetItem(parent, title)
-        item.setData(column, QtCore.Qt.UserRole, data_)
+        item.setData(column, QtCore.Qt.UserRole, data)
         if addCheck:
             item.setCheckState (column, QtCore.Qt.Unchecked)
         item.setExpanded (False)
@@ -1032,7 +1028,7 @@ class Window(QtGui.QWidget):
         try:
             service_args = [
                 #'--proxy-type=none'
-                ]
+            ]
             driver = webdriver.PhantomJS(PHANTOMJS_PATH, service_args=service_args)
             driver.set_page_load_timeout(WEBDRIVER_PAGELOAD_TIMEOUT_S)
             driver.implicitly_wait(WEBDRIVER_IMPLICIT_WAIT_S)
@@ -1053,7 +1049,7 @@ class Window(QtGui.QWidget):
             # Get valid element
             make = getValidSelectFromList(makes)
             # Start scraping
-            self.addToLog("Starting web scraping with maximum thread count: " + str(MAX_THREAD_COUNT))
+            self.addToLog("Starting web scraping with maximum thread count: %s" % str(MAX_THREAD_COUNT))
             self.nMakeProcessed = 0
             self.nMakeTotal = 0
             for make in make.options:
@@ -1077,9 +1073,9 @@ class Window(QtGui.QWidget):
             self.progressBar.setValue(0)
             # Set stop button
             self.pushbutton_getDataStop.setEnabled(True)
-        except Exception, e1:
+        except Exception as e1:
             # Add to log
-            self.addToLog("Could not start web scraping: " + str(e1))
+            self.addToLog("Could not start web scraping: %s" % str(e1))
             # Set UI
             self.pushbutton_getDataStart.setEnabled(True)
             self.pushbutton_getDataStop.setEnabled(False)
@@ -1096,7 +1092,7 @@ class Window(QtGui.QWidget):
             # Close webdriver (best effort)
             try:
                 driver.close()
-            except Exception, e2:
+            except Exception as e2:
                 pass
 
     def newMake(self, vehicleList):
@@ -1207,29 +1203,28 @@ class Window(QtGui.QWidget):
         # Stop all threads
         self.signals.stopThreads.emit()
         # Wait
-        while not self.pool.waitForDone(THREAD_STOP_WAIT_MS):
-            self.signals.stopThreads.emit()
+        self.pool.waitForDone()
 
     def showData(self):
         sel = self.treeWidget_vehicles.selectedItems()
         vehicleSelected = False
         for s in sel:
             # Item is vehicle
-            if s.data(0, QtCore.Qt.UserRole) != None and s.isSelected() and os.path.isfile(s.data(0, QtCore.Qt.UserRole).toString()):
+            if s.data(0, QtCore.Qt.UserRole) != None and s.isSelected() and os.path.isfile(s.data(0, QtCore.Qt.UserRole)):
                 self.treeWidget_data.clear()
-                file_path = s.data(0, QtCore.Qt.UserRole).toString()
+                file_path = s.data(0, QtCore.Qt.UserRole)
                 vehicleSelected = True
                 # Show data
                 with open(file_path) as data_file:    
                     data = json.load(data_file)
-                for key, value in data.iteritems():
+                for key, value in list(data.items()):
                     item = self.addChild(self.treeWidget_data.invisibleRootItem(), 0, [key], None, False)
                     # Dictionary
                     if isinstance(value, dict):
-                        for k, v in value.iteritems():
+                        for k, v in list(value.items()):
                             if isinstance(v, dict):
                                 item_ = self.addChild(item, 0, [k], None, False)
-                                for k2, v2 in v.iteritems():
+                                for k2, v2 in list(v.items()):
                                     self.addChild(item_, 0, [k2,v2], None, False)
                             else:
                                 self.addChild(item, 0, [k,v], None, False)
@@ -1247,7 +1242,7 @@ class Window(QtGui.QWidget):
             self.treeWidget_data.clear()
             # Show all available fields
             self.showAllAvailableFields()
-            size = sum(len(v) for v in self.availableFields.itervalues())
+            size = sum(len(v) for v in self.availableFields.values())
             self.label_data.setText("Showing all available fields" + " " + "(" + str(size) + ")")
             # Enable select/deselect buttons
             self.pushbutton_dataSelectAll.setEnabled(True)
@@ -1337,9 +1332,9 @@ class Window(QtGui.QWidget):
                     # Load data
                     self.loadData()
                     break
-        except Exception, e:
+        except Exception as e:
             # Add to log
-            self.addToLog("Could not load data: " + str(e))
+            self.addToLog("Could not load data: %s" % str(e))
 
     def loadData(self):
         try:
@@ -1399,9 +1394,9 @@ class Window(QtGui.QWidget):
             # Nothing to process
             if self.nMakeTotal == 0 or len(vehicleList) == 0:
                 raise Exception("No data found.")
-        except Exception, e:
+        except Exception as e:
             # Add to log
-            self.addToLog("Could not load data: " + str(e))
+            self.addToLog("Could not load data: %s" % str(e))
             # Set UI
             self.pushbutton_getDataStart.setEnabled(True)
             self.pushbutton_getDataStop.setEnabled(False)
@@ -1424,17 +1419,17 @@ class Window(QtGui.QWidget):
         with open(data_path) as data_file:    
             data = json.load(data_file)
         # Iterate over field groups
-        for key, value in data.iteritems():
+        for key, value in list(data.items()):
             # Dictionary
             if isinstance(value, dict):
                 if key not in self.availableFields:
                     self.availableFields[key] = set()
                     # Iterate over fields    
-                    for k, v in value.iteritems():
+                    for k, v in list(value.items()):
                         self.availableFields[key].add(k)
                 else:
                     # Iterate over fields    
-                    for k, v in value.iteritems():
+                    for k, v in list(value.items()):
                         if k not in self.availableFields[key]:
                             self.availableFields[key].add(k) 
             # List
@@ -1452,7 +1447,7 @@ class Window(QtGui.QWidget):
 
     def showAllAvailableFields(self):
         data = self.availableFields
-        for key, value in data.iteritems():
+        for key, value in list(data.items()):
             item = self.addChild(self.treeWidget_data.invisibleRootItem(), 0, [key], None, True)
             # Add to tree widget
             for k in value:
@@ -1462,12 +1457,19 @@ class Window(QtGui.QWidget):
         self.treeWidget_data.resizeColumnToContents(1);
 
     def showInFolder(self, item, col):
-        file_path = item.data(col, QtCore.Qt.UserRole).toString()
+        file_path = item.data(col, QtCore.Qt.UserRole)
         if os.path.isfile(file_path):
             dir_path = os.path.dirname(os.path.realpath(str(file_path)))
         else:
             dir_path = os.path.realpath(file_path)
-        subprocess.Popen(r"explorer " + dir_path)
+        # Windows
+        if sys.platform == 'win32':
+            subprocess.Popen(['explorer', dir_path])
+            #os.startfile(dir_path)
+            #subprocess.Popen(r"explorer " + dir_path)
+        # Linux
+        else:
+            subprocess.Popen(['xdg-open', dir_path])
 
     def exportToExcel(self):
         # Do checks before exporting (checked tree widget items)
@@ -1494,7 +1496,7 @@ class Window(QtGui.QWidget):
 
     def saveSelectedVehicles(self, item):
         # Check if item is vehicle (has data which points to a file) and is checked
-        if item.data(0, QtCore.Qt.UserRole) != None and os.path.isfile(item.data(0, QtCore.Qt.UserRole).toString()) and item.checkState(0) == QtCore.Qt.Checked:
+        if item.data(0, QtCore.Qt.UserRole) != None and os.path.isfile(item.data(0, QtCore.Qt.UserRole)) and item.checkState(0) == QtCore.Qt.Checked:
             self.selectedVehicles.append(item)
         # Check children (recursively)
         for i in range(0, item.childCount()):
@@ -1533,7 +1535,7 @@ class Window(QtGui.QWidget):
         self.pushbutton_getDataStart.setEnabled(True)
         self.pushbutton_exportSelectedDataToExcel.setEnabled(True)
         self.pushbutton_loadData.setEnabled(True)
-        self.addToLog("Finished! Excel workbook saved to: " + str(self.filename))
+        self.addToLog("Finished! Excel workbook saved to: %s" % str(self.filename))
         # Set thread to None
         self.exportThread = None
 
@@ -1543,7 +1545,7 @@ class Window(QtGui.QWidget):
         if self.nVehiclesExported == len(self.selectedVehicles):
             self.addToLog("Saving Excel file. Please wait... (this may take several minutes)")
         else:
-            self.addToLog("Processed: " + vehicle)
+            self.addToLog("Processed: %s" % vehicle)
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)

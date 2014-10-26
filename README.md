@@ -34,31 +34,66 @@ Usage Instructions
 ==================
 Linux
 -----
-_The following procedure was tested with:_  
-Ubuntu 12.04 LTS (32-bit)  
-Python 2.7.3  
-Selenium 2.41.0  
+_The following procedure has been tested with:_  
+Ubuntu 14.04 LTS (64-bit)  
+Python 3.4.0  
+Selenium 2.44.0  
 PhantomJS 1.9.7  
+PyQt4 4.10.4  
+BeautifulSoup4 4.3.2  
+html5lib 0.999  
+XlsxWriter 0.6.0  
 
 1. Install PIP:  
-_$ sudo apt-get install python-pip_
+_$ sudo apt-get install python3-pip_
 
 2. Install Selenium Python bindings:  
-_$ sudo pip install -U selenium_
+_$ sudo pip3 install selenium_
 
 3. Install BeautifulSoup:  
-_$ sudo pip install beautifulsoup4_
+_$ sudo pip3 install beautifulsoup4_
 
 4. Install html5lib (BeautifulSoup parser):  
-_$ sudo pip install html5lib_
+_$ sudo pip3 install html5lib_
 
 5. Install PyQt4:  
 _$ sudo apt-get install python-qt4_
 
 6. Install XlsxWriter:  
-_$ sudo pip install XlsxWriter_
+_$ sudo pip3 install XlsxWriter_
 
 7. Download the latest version of PhantomJS from http://phantomjs.org/. Place the phantomjs binary executable in the same folder as the rdbg.py script.
 
 8. Run application:  
+_$ python3 rbdg.py_
+
+Windows
+-------
+_The following procedure has been tested with:_  
+Windows 8.1 Professional (64-bit)  
+Python 3.4.1  
+Selenium 2.44.0  
+PhantomJS 1.9.7  
+PyQt4 4.11.2 for Py3.4 (Qt 4.8.6)  
+BeautifulSoup4 4.3.2  
+html5lib 0.999  
+XlsxWriter 0.6.0  
+
+1. Install Selenium Python bindings:  
+_$ pip install selenium_
+
+2. Install BeautifulSoup:  
+_$ pip install beautifulsoup4_
+
+3. Install html5lib (BeautifulSoup parser):  
+_$ pip install html5lib_
+
+4. Download and install PyQt4 from http://www.riverbankcomputing.com/software/pyqt/download.
+
+5. Install XlsxWriter:  
+_$ pip install XlsxWriter_
+
+6. Download the latest version of PhantomJS from http://phantomjs.org/. Place the phantomjs binary executable in the same folder as the rdbg.py script.
+
+7. Run application:  
 _$ python rbdg.py_
