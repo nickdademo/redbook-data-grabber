@@ -13,7 +13,8 @@ import codecs
 from collections import defaultdict
 from bs4 import BeautifulSoup
 import json
-import urllib
+import urllib.request
+import shutil
 import subprocess
 from xlsxwriter.workbook import Workbook
 
@@ -467,8 +468,9 @@ class Worker(QRunnable):
                                                     img_url_no_ext = m_obj.group(1)
                                                     img_ext = m_obj.group(2)
                                                 else:
-                                                    raise Exception("Image URL could not be extracted from element.")                                            
-                                                urllib.urlretrieve(img_url_no_ext + img_ext, path_ + "/" + filename + "_" + id + "_" + str(i) + img_ext)
+                                                    raise Exception("Image URL could not be extracted from element.")
+                                                with urllib.request.urlopen(img_url_no_ext + img_ext) as response, open(path_ + "/" + filename + "_" + id + "_" + str(i) + img_ext, 'wb') as out_file:
+                                                    shutil.copyfileobj(response, out_file)
                                                 i += 1
                                     # Emit signal
                                     self.signals.vehicle.emit(v)
