@@ -57,7 +57,7 @@ _$ sudo pip3 install beautifulsoup4_
 _$ sudo pip3 install html5lib_
 
 5. Install PyQt4:  
-_$ sudo apt-get install python-qt4_
+_$ sudo apt-get install python3-pyqt4_
 
 6. Install XlsxWriter:  
 _$ sudo pip3 install XlsxWriter_
