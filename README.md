@@ -42,7 +42,7 @@ PhantomJS 1.9.7
 PyQt4 4.10.4  
 BeautifulSoup4 4.3.2  
 html5lib 0.999  
-XlsxWriter 0.6.0  
+XlsxWriter 0.6.6  
 
 1. Install PIP:  
 _$ sudo apt-get install python3-pip_
