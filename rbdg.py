@@ -17,31 +17,45 @@ import urllib.request
 import shutil
 import subprocess
 from xlsxwriter.workbook import Workbook
+import logging
+import datetime
 
-DEBUG                           = True
-APP_VERSION_STRING              = "1.0.2"
-DEFAULT_REDBOOK_URL             = "http://www.redbook.com.au/"
-AUTHOR_STRING                   = "Created by Nick D'Ademo"
-PHANTOMJS_PATH                  = "./phantomjs"
-WEBDRIVER_UNTIL_WAIT_S          = 60
-WEBDRIVER_PAGELOAD_TIMEOUT_S    = 60
-WEBDRIVER_IMPLICIT_WAIT_S       = 30
-DEFAULT_SEARCH_TYPE_ID          = "rdbCurrent"
-MAX_THREAD_COUNT                = 2
-DATA_SAVE_REL_PATH              = "Data"
+APP_VERSION_STRING              = '1.0.3'
+TIMESTAMP_FORMAT_STR            = '%Y%m%d%H%M%S'
+DEFAULT_REDBOOK_URL             = 'http://www.redbook.com.au/'
+AUTHOR_STRING                   = 'Created by Nick D\'Ademo'
+PHANTOMJS_PATH                  = './phantomjs'
+WEBDRIVER_UNTIL_WAIT_S          = 10
+WEBDRIVER_PAGELOAD_TIMEOUT_S    = 30
+WEBDRIVER_IMPLICIT_WAIT_S       = 5
+DEFAULT_SEARCH_TYPE_ID          = 'rdbCurrent'
+MAX_THREAD_COUNT                = 8
+DATA_SAVE_REL_PATH              = 'Data'
+LOG_REL_PATH                    = 'Logs'
 N_ROWS_GAP_BETWEEN_IMAGES       = 30
 COLUMN_WIDTH_PADDING            = 2
-EXCEL_TEMP_DIR                  = "Temp"
+EXCEL_TEMP_DIR                  = 'Temp'
 
-ID_VALUATION_PRICES             = "ctl07_p_ctl04_ctl03_ctl01_ctl02_dgProps"
-ID_OVERVIEW                     = "ctl07_p_ctl04_ctl03_ctl02_dgProps"
-ID_ENGINE                       = "ctl07_p_ctl04_ctl03_ctl05_ctl01_dgProps"
-ID_DIMENSIONS                   = "ctl07_p_ctl04_ctl03_ctl05_ctl02_dgProps"
-ID_WARRANTY                     = "ctl07_p_ctl04_ctl03_ctl05_ctl03_dgProps"
-ID_GREEN_INFO                   = "ctl07_p_ctl04_ctl03_ctl05_ctl04_pnlBody"
-ID_STEERING                     = "ctl07_p_ctl04_ctl03_ctl05_ctl05_dgProps"
-ID_WHEELS                       = "ctl07_p_ctl04_ctl03_ctl05_ctl06_dgProps"
-ID_STANDARD_EQUIPMENT           = "ctl07_p_ctl04_ctl03_ctl05_ctl07_dgPropsNoLabel"
+LOG_NAME__APP                   = 'rbdg'
+LOG_FORMAT__APP                 = '%(asctime)s - %(thread)d - %(category)s - %(levelname)s - %(message)s'
+LOG_LEVEL__APP                  = 'DEBUG'
+LOG_FILENAME__APP               = 'rbdg'
+LOG_FILENAME_EXT__APP           = '.txt'
+LOG_NAME__SELENIUM              = 'selenium.webdriver.remote.remote_connection'
+LOG_FORMAT__SELENIUM            = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL__SELENIUM             = 'DEBUG'
+LOG_FILENAME__SELENIUM          = 'selenium'
+LOG_FILENAME_EXT__SELENIUM      = '.txt'
+
+ID_VALUATION_PRICES             = 'ctl07_p_ctl04_ctl03_ctl01_ctl02_dgProps'
+ID_OVERVIEW                     = 'ctl07_p_ctl04_ctl03_ctl02_dgProps'
+ID_ENGINE                       = 'ctl07_p_ctl04_ctl03_ctl05_ctl01_dgProps'
+ID_DIMENSIONS                   = 'ctl07_p_ctl04_ctl03_ctl05_ctl02_dgProps'
+ID_WARRANTY                     = 'ctl07_p_ctl04_ctl03_ctl05_ctl03_dgProps'
+ID_GREEN_INFO                   = 'ctl07_p_ctl04_ctl03_ctl05_ctl04_pnlBody'
+ID_STEERING                     = 'ctl07_p_ctl04_ctl03_ctl05_ctl05_dgProps'
+ID_WHEELS                       = 'ctl07_p_ctl04_ctl03_ctl05_ctl06_dgProps'
+ID_STANDARD_EQUIPMENT           = 'ctl07_p_ctl04_ctl03_ctl05_ctl07_dgPropsNoLabel'
 
 class Vehicle():
     def __init__(self, make, model, year, name, id, data_path):
@@ -64,7 +78,7 @@ class WorkerSignals(QObject):
     result = pyqtSignal(list)
     retry = pyqtSignal(str)
     vehicle = pyqtSignal(object)
-    log = pyqtSignal(str)
+    log = pyqtSignal(str, str, str)
 
 class WindowSignals(QObject):
     stopThreads = pyqtSignal()
@@ -239,7 +253,7 @@ class ExportThread(QtCore.QThread):
                     noMatches = False
             # Print warning if no images were found for current vehicle
             if noMatches:
-                print("WARNING: No images found for %s" % filename_noext)
+                logging.getLogger(LOG_NAME__APP).warning("No images found for %s" % filename_noext, extra={'category':'app'})
             index_worksheet.write(j, 5, str(nImages), center)
             index_col_5.append(len(str(nImages)))
             j += 1
@@ -299,10 +313,9 @@ class Worker(QRunnable):
         self.make_text = self.make
         m_obj = re.search(r"(.*) \(\d+\)", self.make)
         if m_obj:
-            self.make_text = m_obj.group(1)   
+            self.make_text = m_obj.group(1)
 
     def run(self):
-        doRetry = False
         try:
             # Check flag
             if self.doStop == False:
@@ -321,6 +334,7 @@ class Worker(QRunnable):
                     if self.doStop == True:
                         raise StopException()
                     # Open RedBook.com.au
+                    logging.getLogger(LOG_NAME__APP).info("Getting URL: %s" % self.url, extra={'category':self.make_text})
                     driver.get(self.url)
                     # Wait for any Ajax requests to complete
                     WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda s: s.execute_script("return jQuery.active == 0"))
@@ -339,160 +353,179 @@ class Worker(QRunnable):
                             makeClicked = True
                             break
                     if not makeClicked:
-                        raise Exception("Could not click select Make: " + self.make + " [Select element length=" + str(len(m.options)) + "]")
+                        raise Exception("Could not click select Make: %s [Select element length=%d]" % (self.make, len(m.options)))
                     # Wait for any Ajax requests to complete
                     WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda s: s.execute_script("return jQuery.active == 0"))
                     # Get valid MODEL select element
                     models = driver.find_elements_by_id('cboModel')
                     model = getValidSelectFromList(models)
+                    # Remove any invalid items from MODEL list
+                    model_options = [m for m in model.options if (m.text != "All Models" and m.get_attribute("source") == None)]
                     # Save number of models
-                    nModels = len(model.options)
+                    nModels = len(model_options)
+                    logging.getLogger(LOG_NAME__APP).info("Total number of models (%s): %d" % (self.make_text, nModels), extra={'category':self.make_text})
                     # Save current MODEL
-                    model_option = model.options[modelIndex]
+                    model_option = model_options[modelIndex]
                     model_text = model_option.text
-                    if model_text != "All Models" and model_option.get_attribute("source") == None:
-                        # Select MODEL
-                        model.select_by_visible_text(model_text)
-                        # Get search button
-                        search_buttons = driver.find_elements_by_id('btnSearch')
-                        searchButtonClicked = False
-                        for button in search_buttons:
-                            if button.is_displayed():
-                                searchButtonClicked = True
-                                button.click()
+                    # Select MODEL
+                    logging.getLogger(LOG_NAME__APP).info("Selecting model: %s" % model_text, extra={'category':self.make_text})
+                    model.select_by_visible_text(model_text)
+                    # Get search button
+                    search_buttons = driver.find_elements_by_id('btnSearch')
+                    searchButtonClicked = False
+                    for button in search_buttons:
+                        if button.is_displayed():
+                            searchButtonClicked = True
+                            button.click()
+                            break
+                    if not searchButtonClicked:
+                        raise Exception("Could not click Search button.")
+                    logging.getLogger(LOG_NAME__APP).info("Processing model: %s" % model_text, extra={'category':self.make_text})
+                    # Iterate over RESULTS
+                    resultIndex = 0
+                    while 1:
+                        # Check flag
+                        if self.doStop == True:
+                            raise StopException()
+                        # Get list of ALL results (over multiple pages if applicable)
+                        if resultIndex == 0:
+                            # Wait for page to load
+                            try:
+                                logging.getLogger(LOG_NAME__APP).info("Loading page (MODEL: %d/%d): %s" % (modelIndex + 1, nModels, model_text), extra={'category':self.make_text})
+                                results = [x.get_attribute("href") for x in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='newcars']"))]
+                                logging.getLogger(LOG_NAME__APP).info("Loaded page (MODEL: %d/%d): %s" % (modelIndex + 1, nModels, model_text), extra={'category':self.make_text})
+                            except Exception as e:
+                                # Do check
+                                WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='']/div[@class='no-results']"))
+                                # Break out of loop
                                 break
-                        if not searchButtonClicked:
-                            raise Exception("Could not click Search button.")
-                        # Iterate over RESULTS
-                        resultIndex = 0
-                        while 1:
+                            # Do we have multiple pages?
+                            res_pages_links = driver.find_elements_by_xpath("//ul[@class='pagination']/li/a[text()!='Next']")
+                            if res_pages_links != None:
+                                href_list = [a.get_attribute("href") for a in res_pages_links]
+                            # Follow links
+                            for href in href_list:
+                                logging.getLogger(LOG_NAME__APP).info("Loading URL (MODEL: %d/%d): %s" % (modelIndex + 1, nModels, href), extra={'category':self.make_text})
+                                driver.get(href)
+                                # Wait for page to load and append to results list
+                                results.append([x.get_attribute("href") for x in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='newcars']"))])    
+                                logging.getLogger(LOG_NAME__APP).info("Loaded URL (MODEL: %d/%d): %s" % (modelIndex + 1, nModels, href), extra={'category':self.make_text})
+                            # Save number of results
+                            nResults = len(results)
+                            logging.getLogger(LOG_NAME__APP).info("Total number of results: %d" % nResults, extra={'category':self.make_text})
+                        # Get link
+                        result = results[resultIndex]
+                        # Save year from link href attribute
+                        m_obj = re.search(r"/(\d{4})$", result)
+                        if m_obj:
+                            year = m_obj.group(1)
+                        else:
+                            raise Exception("Year attribute could not be extracted from element.")
+                        # Follow link
+                        logging.getLogger(LOG_NAME__APP).info("Loading URL (RESULT: %d/%d): %s" % (resultIndex + 1, nResults, result), extra={'category':self.make_text})
+                        driver.get(result)
+                        
+                        # Get list of ALL badges (over multiple pages if applicable)
+                        # Wait for page to load
+                        badges = dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']")))
+                        logging.getLogger(LOG_NAME__APP).info("Loaded URL (RESULT: %d/%d): %s" % (resultIndex + 1, nResults, result), extra={'category':self.make_text})
+                        # Do we have multiple pages?
+                        badges_pages_links = driver.find_elements_by_xpath("//ul[@class='pagination']/li/a[text()!='Next']")
+                        if badges_pages_links != None:
+                            href_list = [a.get_attribute("href") for a in badges_pages_links]
+                        # Follow links
+                        for href in href_list:
+                            logging.getLogger(LOG_NAME__APP).info("Loading URL (RESULT: %d/%d): %s" % (resultIndex + 1, nResults, result), extra={'category':self.make_text})
+                            driver.get(href)
+                            # Wait for page to load and append to results list
+                            _badges = dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']")))
+                            logging.getLogger(LOG_NAME__APP).info("Loaded URL (RESULT: %d/%d): %s" % (resultIndex + 1, nResults, result), extra={'category':self.make_text})
+                            badges = dict(badges.items() + _badges.items())
+                        # Save number of badges        
+                        nBadges = len(badges)
+                        logging.getLogger(LOG_NAME__APP).info("Total number of badges: %d" % nBadges, extra={'category':self.make_text})
+                        # Reset index
+                        badgeIndex = 0
+                        # Iterate over BADGES
+                        for id, href in list(badges.items()):
                             # Check flag
                             if self.doStop == True:
                                 raise StopException()
-                            # Get list of ALL results (over multiple pages if applicable)
-                            if resultIndex == 0:
-                                # Wait for page to load
-                                try:
-                                    results = [x.get_attribute("href") for x in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='newcars']"))]
-                                except Exception as e:
-                                    # Do check
-                                    no_results = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='']/div[@class='no-results']"))
-                                    # Break out of loop
-                                    break
-                                 # Do we have multiple pages?
-                                res_pages_links = driver.find_elements_by_xpath("//ul[@class='pagination']/li/a[text()!='Next']")
-                                if res_pages_links != None:
-                                    href_list = [a.get_attribute("href") for a in res_pages_links]
-                                # Follow links
-                                for href in href_list:
-                                    driver.get(href)
-                                    # Wait for page to load and append to results list
-                                    results.append([x.get_attribute("href") for x in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='newcars']"))])    
-                                # Save number of results
-                                nResults = len(results)
-                            # Get link
-                            result = results[resultIndex]
-                            # Save year from link href attribute
-                            m_obj = re.search(r"/(\d{4})$", result)
-                            if m_obj:
-                                year = m_obj.group(1)
-                            else:
-                                raise Exception("Year attribute could not be extracted from element.")
-                            # Follow link
-                            driver.get(result)
-                            
-                            # Get list of ALL badges (over multiple pages if applicable)
-                            # Wait for page to load
-                            badges = dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']")))
-                            # Do we have multiple pages?
-                            badges_pages_links = driver.find_elements_by_xpath("//ul[@class='pagination']/li/a[text()!='Next']")
-                            if badges_pages_links != None:
-                                href_list = [a.get_attribute("href") for a in badges_pages_links]
-                            # Follow links
-                            for href in href_list:
+                            # Check if vehicle data has already been saved
+                            if id not in self.completedVehicles:
+                                # Open page
+                                logging.getLogger(LOG_NAME__APP).info("Loading URL (BADGE: %d/%d): %s" % (badgeIndex + 1, nBadges, href), extra={'category':self.make_text})
                                 driver.get(href)
-                                # Wait for page to load and append to results list
-                                badges = dict(list(badges.items()) + list(dict((el.get_attribute("id"), el.get_attribute("href")) for el in WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div[@class='content']/a[@class='item']"))).items()))
-                            # Save number of badges        
-                            nBadges = len(badges)
-                            # Reset index
-                            badgeIndex=0
-                            # Iterate over BADGES
-                            for id, href in list(badges.items()):
-                                # Check flag
-                                if self.doStop == True:
-                                    raise StopException()
-                                # Check if vehicle data has already been saved
-                                if id not in self.completedVehicles:
-                                    # Open page
-                                    driver.get(href)
-                                    # Wait for page to load
-                                    badge = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_element_by_xpath("//div[@class='details']/div/h1[@class='details-title']"))
-                                    #############
-                                    # SAVE DATA #
-                                    #############
-                                    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
-                                    badge_text = badge.text
-                                    # Create directory structure
-                                    path_ = self.path + "/" + str(self.make_text) + "/" + str(model_text.strip()) + "/" + str(year)
-                                    if not os.path.exists(path_):
-                                        os.makedirs(path_)
-                                    # Save data as JSON file
-                                    filename = ''.join(c for c in badge_text if c in valid_chars)
-                                    json_string = self.getDataAsJSONString(driver.page_source)
-                                    file_path = path_ + "/" + filename + "_" + id + ".json"
-                                    with codecs.open(file_path, mode="w", encoding='utf-8') as data_file:
-                                        data_file.write(json_string)
-                                    # Add to vehicle object list
-                                    v = Vehicle(self.make_text, model_text.strip(), year, badge_text, id, file_path)
-                                    self.vehicleList.append(v)
-                                    # Save screenshot (if enabled)
-                                    if self.saveScreenshot == True:
-                                        self.takeScreenshot(driver, filename + "_" + id + '.png', path_)
-                                    # Save images (if enabled)
-                                    if self.saveImages == True:
-                                        # Attempt to grab img elements
-                                        try:
-                                            images = None
-                                            images = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div/ul[@class='thumbs']/li/a/img"))
-                                        # No images (timeout)
-                                        except Exception as e:
-                                            pass
-                                        # Images found
-                                        if images != None:
-                                            i = 1
-                                            for img in images:
-                                                # Get URL
-                                                m_obj = re.search(r"(.*)(\..*)\?", img.get_attribute("src"))
-                                                if m_obj:
-                                                    img_url_no_ext = m_obj.group(1)
-                                                    img_ext = m_obj.group(2)
-                                                else:
-                                                    raise Exception("Image URL could not be extracted from element.")
-                                                with urllib.request.urlopen(img_url_no_ext + img_ext) as response, open(path_ + "/" + filename + "_" + id + "_" + str(i) + img_ext, 'wb') as out_file:
-                                                    shutil.copyfileobj(response, out_file)
-                                                i += 1
-                                    # Emit signal
-                                    self.signals.vehicle.emit(v)
-                                    # Add to log
-                                    self.signals.log.emit("Processed (" + id + "): " + badge_text)
-                                    # Go back
-                                    driver.back()
-                                else:
-                                    # Add to log
-                                    self.signals.log.emit("Skipped (" + id + "): " + self.make_text)
-                                # Increment index
-                                badgeIndex+=1
-                            # Go back
-                            driver.back()
-                            # Exit loop
+                                # Wait for page to load
+                                badge = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_element_by_xpath("//div[@class='details']/div/h1[@class='details-title']"))
+                                logging.getLogger(LOG_NAME__APP).info("Loaded URL (BADGE: %d/%d): %s" % (badgeIndex + 1, nBadges, href), extra={'category':self.make_text})
+                                #############
+                                # SAVE DATA #
+                                #############
+                                valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+                                badge_text = badge.text
+                                # Create directory structure
+                                path_ = self.path + "/" + str(self.make_text) + "/" + str(model_text.strip()) + "/" + str(year)
+                                if not os.path.exists(path_):
+                                    os.makedirs(path_)
+                                # Save data as JSON file
+                                filename = ''.join(c for c in badge_text if c in valid_chars)
+                                json_string = self.getDataAsJSONString(driver.page_source)
+                                file_path = path_ + "/" + filename + "_" + id + ".json"
+                                with codecs.open(file_path, mode="w", encoding='utf-8') as data_file:
+                                    data_file.write(json_string)
+                                # Add to vehicle object list
+                                v = Vehicle(self.make_text, model_text.strip(), year, badge_text, id, file_path)
+                                self.vehicleList.append(v)
+                                # Save screenshot (if enabled)
+                                if self.saveScreenshot == True:
+                                    self.takeScreenshot(driver, filename + "_" + id + '.png', path_)
+                                # Save images (if enabled)
+                                if self.saveImages == True:
+                                    # Attempt to grab img elements
+                                    try:
+                                        images = None
+                                        images = WebDriverWait(driver, WEBDRIVER_UNTIL_WAIT_S).until(lambda driver : driver.find_elements_by_xpath("//div/ul[@class='thumbs']/li/a/img"))
+                                    # No images (timeout)
+                                    except Exception as e:
+                                        pass
+                                    # Images found
+                                    if images != None:
+                                        i = 1
+                                        for img in images:
+                                            # Get URL
+                                            m_obj = re.search(r"(.*)(\..*)\?", img.get_attribute("src"))
+                                            if m_obj:
+                                                img_url_no_ext = m_obj.group(1)
+                                                img_ext = m_obj.group(2)
+                                            else:
+                                                raise Exception("Image URL could not be extracted from element.")
+                                            with urllib.request.urlopen(img_url_no_ext + img_ext) as response, open(path_ + "/" + filename + "_" + id + "_" + str(i) + img_ext, 'wb') as out_file:
+                                                shutil.copyfileobj(response, out_file)
+                                            i += 1
+                                # Emit signal
+                                self.signals.vehicle.emit(v)
+                                # Add to log
+                                self.signals.log.emit("Processed (" + id + "): " + badge_text, 'INFO', self.make_text)
+                                # Go back
+                                driver.back()
+                            else:
+                                # Add to log
+                                self.signals.log.emit("Skipped (" + id + "): " + self.make_text, 'WARNING', self.make_text)
+                            # Increment index
+                            badgeIndex+=1
+                        # Go back
+                        driver.back()
+                        # Exit loop
+                        if resultIndex == (nResults - 1):
+                            break
+                        else:
                             resultIndex += 1
-                            if resultIndex == nResults:
-                                break
                     # Exit loop
-                    modelIndex += 1
-                    if modelIndex == nModels:
+                    if modelIndex == (nModels - 1):
                         break
+                    else:
+                        modelIndex += 1
                 # Done
                 self.signals.result.emit(self.vehicleList)
             # Exit thread
@@ -502,29 +535,17 @@ class Worker(QRunnable):
             # Done
             self.signals.result.emit(self.vehicleList)
         except Exception as e2:
-            if DEBUG:
-                print(traceback.format_exc())
-            if self.doStop:
-                # Done
-                self.signals.result.emit(self.vehicleList)
-            else:
-                 # Add to log
-                self.signals.log.emit("Retrying: " + self.make_text)
-                # Retry MAKE (set flag)
-                doRetry = True               
+            logging.getLogger(LOG_NAME__APP).debug(traceback.format_exc(), extra={'category':self.make_text})
+             # Add to log
+            self.signals.log.emit("Retrying: " + self.make_text, 'WARNING', self.make_text)
+            # Retry MAKE
+            self.signals.retry.emit(self.make)           
         finally:
             # Close webdriver (best effort)
             try:
                 driver.close()
             except Exception as e3:
                 pass
-            finally:
-                if self.doStop:
-                    # Done
-                    self.signals.result.emit(self.vehicleList)
-                else:
-                    # Retry MAKE
-                    self.signals.retry.emit(self.make)
 
     def takeScreenshot(self, driver, name, save_location):
         # Make sure the path exists
@@ -532,6 +553,7 @@ class Worker(QRunnable):
         if not os.path.exists(path):
             os.makedirs(path)
         full_path = "%s/%s" % (path, name)
+        logging.getLogger(LOG_NAME__APP).info("Getting URL: %s" % full_path, extra={'category':self.make_text})
         driver.get_screenshot_as_file(full_path)
         return full_path
 
@@ -791,6 +813,32 @@ class Worker(QRunnable):
 class Window(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
+        timestamp = datetime.datetime.now()
+        # Create log directory if it doesn't exist
+        if not os.path.exists(LOG_REL_PATH):
+            os.makedirs(LOG_REL_PATH)
+        # Setup application logging
+        logger_app = logging.getLogger(LOG_NAME__APP)
+        logger_app.setLevel(LOG_LEVEL__APP)
+        formatter_app = logging.Formatter(LOG_FORMAT__APP)
+        # FILE
+        file_log_handler_app = logging.FileHandler(LOG_REL_PATH + '/' + timestamp.strftime(TIMESTAMP_FORMAT_STR) + '_' + LOG_FILENAME__APP + LOG_FILENAME_EXT__APP)
+        logger_app.addHandler(file_log_handler_app)
+        file_log_handler_app.setFormatter(formatter_app)
+        # STDERR
+        stderr_log_handler_app = logging.StreamHandler()
+        logger_app.addHandler(stderr_log_handler_app)
+        stderr_log_handler_app.setFormatter(formatter_app)
+        # Setup Selenium logging
+        logger_selenium = logging.getLogger(LOG_NAME__SELENIUM)
+        logger_selenium.setLevel(logging.DEBUG)
+        formatter_selenium = logging.Formatter(LOG_FORMAT__SELENIUM)
+        # FILE  
+        file_log_handler_selenium = logging.FileHandler(LOG_REL_PATH + '/' + timestamp.strftime(TIMESTAMP_FORMAT_STR) + '_' + LOG_FILENAME__SELENIUM + LOG_FILENAME_EXT__SELENIUM)
+        logger_selenium.addHandler(file_log_handler_selenium)
+        file_log_handler_selenium.setFormatter(formatter_selenium)
+        # Print version
+        logging.getLogger(LOG_NAME__APP).info("RedBook Data Grabbed started (v%s)" % APP_VERSION_STRING, extra={'category':'app'})
         # Initialize UI
         self.initUI()
         # Create thread pool
@@ -902,6 +950,7 @@ class Window(QtGui.QWidget):
         self.treeWidget_vehicles.setColumnCount(2)
         self.treeWidget_vehicles.setHeaderLabels(["Vehicle","ID"])
         self.treeWidget_vehicles.setHeaderHidden(False)
+        self.treeWidget_vehicles.setExpandsOnDoubleClick(False)
         self.treeWidget_vehicles.itemChanged.connect (self.handleChanged)
         self.treeWidget_vehicles.itemSelectionChanged.connect (self.showData)
         self.treeWidget_vehicles.itemExpanded.connect (self.autoResizeVehicles)
@@ -1038,6 +1087,7 @@ class Window(QtGui.QWidget):
             # Get URL
             url = str(self.url.toPlainText())
             # Open RedBook.com.au
+            logging.getLogger(LOG_NAME__APP).info("Getting URL: %s" % url, extra={'category':'app'})
             driver.get(url)
             # Get search type
             if self.searchtype_group.checkedButton().text() == 'Used (All)':
@@ -1050,26 +1100,27 @@ class Window(QtGui.QWidget):
             makes = driver.find_elements_by_id("cboMake")
             # Get valid element
             make = getValidSelectFromList(makes)
+            # Remove any invalid items from MAKE list
+            make_options = [m for m in make.options if (m.text != "All Makes")]
             # Start scraping
-            self.addToLog("Starting web scraping with maximum thread count: %s" % str(MAX_THREAD_COUNT))
+            self.addToLog("Starting web scraping with maximum thread count: %s" % str(MAX_THREAD_COUNT), 'INFO', 'app')
             self.nMakeProcessed = 0
             self.nMakeTotal = 0
-            for make in make.options:
-                if make.text != "All Makes":
-                    # Get MAKE (without count)
-                    make_text = make.text
-                    m_obj = re.search(r"(.*) \(\d+\)", make.text)
-                    if m_obj:
-                        make_text = m_obj.group(1)
-                    # Create and start thread
-                    worker = Worker(url, searchTypeID, make.text, self.path, self.checkbox_saveScreenshots.isChecked(), self.checkbox_saveImages.isChecked(), self.completedVehicles[make_text])
-                    worker.signals.result.connect(self.newMake, QtCore.Qt.QueuedConnection)
-                    worker.signals.retry.connect(self.retryMake, QtCore.Qt.QueuedConnection)
-                    worker.signals.vehicle.connect(self.newVehicle, QtCore.Qt.QueuedConnection)
-                    worker.signals.log.connect(self.addToLog, QtCore.Qt.QueuedConnection)
-                    self.signals.stopThreads.connect(worker.stop)
-                    self.pool.start(worker)
-                    self.nMakeTotal += 1
+            for make in make_options:
+                # Get MAKE (without count)
+                make_text = make.text
+                m_obj = re.search(r"(.*) \(\d+\)", make.text)
+                if m_obj:
+                    make_text = m_obj.group(1)
+                # Create and start thread
+                worker = Worker(url, searchTypeID, make.text, self.path, self.checkbox_saveScreenshots.isChecked(), self.checkbox_saveImages.isChecked(), self.completedVehicles[make_text])
+                worker.signals.result.connect(self.newMake, QtCore.Qt.QueuedConnection)
+                worker.signals.retry.connect(self.retryMake, QtCore.Qt.QueuedConnection)
+                worker.signals.vehicle.connect(self.newVehicle, QtCore.Qt.QueuedConnection)
+                worker.signals.log.connect(self.addToLog, QtCore.Qt.QueuedConnection)
+                self.signals.stopThreads.connect(worker.stop)
+                self.pool.start(worker)
+                self.nMakeTotal += 1
             # Set progress bar range
             self.progressBar.setRange(0, self.nMakeTotal)
             self.progressBar.setValue(0)
@@ -1077,7 +1128,7 @@ class Window(QtGui.QWidget):
             self.pushbutton_getDataStop.setEnabled(True)
         except Exception as e1:
             # Add to log
-            self.addToLog("Could not start web scraping: %s" % str(e1))
+            self.addToLog("Could not start web scraping: %s" % str(e1), 'ERROR', 'app')
             # Set UI
             self.pushbutton_getDataStart.setEnabled(True)
             self.pushbutton_getDataStop.setEnabled(False)
@@ -1194,7 +1245,17 @@ class Window(QtGui.QWidget):
         self.signals.stopThreads.connect(worker.stop)
         self.pool.start(worker, QtCore.QThread.NormalPriority)
 
-    def addToLog(self, text):
+    def addToLog(self, text, level, category):
+        if level == 'INFO':
+            logging.getLogger(LOG_NAME__APP).info(text, extra={'category':category})
+        elif level == 'DEBUG':
+            logging.getLogger(LOG_NAME__APP).debug(text, extra={'category':category})
+        elif level == 'WARNING':
+            logging.getLogger(LOG_NAME__APP).warning(text, extra={'category':category})
+        elif level == 'ERROR':
+            logging.getLogger(LOG_NAME__APP).error(text, extra={'category':category})
+        elif level == 'CRITICAL':
+            logging.getLogger(LOG_NAME__APP).critical(text, extra={'category':category})
         self.log.append(text)
 
     def stop(self):
@@ -1336,7 +1397,7 @@ class Window(QtGui.QWidget):
                     break
         except Exception as e:
             # Add to log
-            self.addToLog("Could not load data: %s" % str(e))
+            self.addToLog("Could not load data: %s" % str(e), 'ERROR', 'app')
 
     def loadData(self):
         try:
@@ -1398,7 +1459,7 @@ class Window(QtGui.QWidget):
                 raise Exception("No data found.")
         except Exception as e:
             # Add to log
-            self.addToLog("Could not load data: %s" % str(e))
+            self.addToLog("Could not load data: %s" % str(e), 'ERROR', 'app')
             # Set UI
             self.pushbutton_getDataStart.setEnabled(True)
             self.pushbutton_getDataStop.setEnabled(False)
@@ -1467,8 +1528,6 @@ class Window(QtGui.QWidget):
         # Windows
         if sys.platform == 'win32':
             subprocess.Popen(['explorer', dir_path])
-            #os.startfile(dir_path)
-            #subprocess.Popen(r"explorer " + dir_path)
         # Linux
         else:
             subprocess.Popen(['xdg-open', dir_path])
@@ -1537,7 +1596,7 @@ class Window(QtGui.QWidget):
         self.pushbutton_getDataStart.setEnabled(True)
         self.pushbutton_exportSelectedDataToExcel.setEnabled(True)
         self.pushbutton_loadData.setEnabled(True)
-        self.addToLog("Finished! Excel workbook saved to: %s" % str(self.filename))
+        self.addToLog("Finished! Excel workbook saved to: %s" % str(self.filename), 'INFO', 'app')
         # Set thread to None
         self.exportThread = None
 
@@ -1545,9 +1604,9 @@ class Window(QtGui.QWidget):
         self.nVehiclesExported += 1
         self.progressBar_export.setValue(self.nVehiclesExported)
         if self.nVehiclesExported == len(self.selectedVehicles):
-            self.addToLog("Saving Excel file. Please wait... (this may take several minutes)")
+            self.addToLog("Saving Excel file. Please wait... (this may take several minutes)", 'INFO', 'app')
         else:
-            self.addToLog("Processed: %s" % vehicle)
+            self.addToLog("Processed: %s" % vehicle, 'INFO', 'app')
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)

@@ -71,13 +71,13 @@ Windows
 -------
 _The following procedure has been tested with:_  
 Windows 8.1 Professional (64-bit)  
-Python 3.4.1  
+Python 3.4.2  
 Selenium 2.44.0  
-PhantomJS 1.9.7  
-PyQt4 4.11.2 for Py3.4 (Qt 4.8.6)  
+PhantomJS 2.0.0  
+PyQt4 4.11.3 for Py3.4 (x64) (Qt 5.3.2)  
 BeautifulSoup4 4.3.2  
 html5lib 0.999  
-XlsxWriter 0.6.0  
+XlsxWriter 0.6.6  
 
 1. Install Selenium Python bindings:  
 _$ pip install selenium_
